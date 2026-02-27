@@ -740,3 +740,56 @@ public final class Bitcord {
         dispatcher.addListener(listener);
     }
 
+    public void removeEventListener(BitcordEventListener listener) {
+        dispatcher.removeListener(listener);
+    }
+
+    public void updateCacheFromEvent(BitcordEvent event) {
+        switch (event.getKind()) {
+            case GUILD_CREATED:
+                GuildSnapshot g = parseGuildSnapshot(event.getPayloadJson());
+                if (g != null) cache.putGuild(g);
+                break;
+            case CHANNEL_CREATED:
+                ChannelSnapshot c = parseChannelSnapshot(event.getPayloadJson());
+                if (c != null) cache.putChannel(c);
+                break;
+            case MEMBER_JOINED:
+                String gj = event.getPayloadJson();
+                GuildId gid = parseGuildIdFromPayload(gj);
+                WalletAddress addr = parseAddressFromPayload(gj);
+                if (gid != null && addr != null) cache.addGuildMember(gid, addr);
+                break;
+            case MEMBER_LEFT:
+                String gl = event.getPayloadJson();
+                GuildId gid2 = parseGuildIdFromPayload(gl);
+                WalletAddress addr2 = parseAddressFromPayload(gl);
+                if (gid2 != null && addr2 != null) cache.removeGuildMember(gid2, addr2);
+                break;
+            case MESSAGE_RECEIVED:
+                BitcordMessage msg = parseMessage(event.getPayloadJson());
+                if (msg != null) cache.appendMessage(msg.getChannelId(), msg);
+                break;
+            default:
+                break;
+        }
+    }
+
+    public GuildSnapshot getCachedGuild(GuildId guildId) {
+        return cache.getGuild(guildId);
+    }
+
+    public ChannelSnapshot getCachedChannel(ChannelId channelId) {
+        return cache.getChannel(channelId);
+    }
+
+    public List<ChannelSnapshot> getCachedChannelsForGuild(GuildId guildId) {
+        return cache.getChannelsForGuild(guildId);
+    }
+
+    public List<BitcordMessage> getCachedMessages(ChannelId channelId, int limit) {
+        return cache.getMessages(channelId, limit);
+    }
+
+    public void clearCache() {
+        cache.clear();
