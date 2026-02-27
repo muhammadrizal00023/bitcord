@@ -51,3 +51,56 @@ class BitcordValidationException extends RuntimeException {
     BitcordValidationException(String msg) { super(msg); }
 }
 
+class BitcordAuthException extends RuntimeException {
+    BitcordAuthException(String msg) { super(msg); }
+}
+
+class BitcordRateLimitException extends RuntimeException {
+    private final long retryAfterMs;
+    BitcordRateLimitException(String msg, long retryAfterMs) {
+        super(msg);
+        this.retryAfterMs = retryAfterMs;
+    }
+    long getRetryAfterMs() { return retryAfterMs; }
+}
+
+// -----------------------------------------------------------------------------
+// Value types
+// -----------------------------------------------------------------------------
+
+final class GuildId {
+    private final String value;
+    GuildId(String value) {
+        if (value == null || !BitcordConstants.GUILD_ID_PATTERN.matcher(value).matches())
+            throw new BitcordValidationException("Invalid guild id: " + value);
+        this.value = value;
+    }
+    String getValue() { return value; }
+    @Override public boolean equals(Object o) {
+        return o instanceof GuildId && value.equals(((GuildId) o).value);
+    }
+    @Override public int hashCode() { return value.hashCode(); }
+    @Override public String toString() { return value; }
+}
+
+final class ChannelId {
+    private final String value;
+    ChannelId(String value) {
+        if (value == null || value.length() != 66 || !value.startsWith(BitcordConstants.HEX_PREFIX))
+            throw new BitcordValidationException("Invalid channel id: " + value);
+        this.value = value;
+    }
+    String getValue() { return value; }
+    @Override public boolean equals(Object o) {
+        return o instanceof ChannelId && value.equals(((ChannelId) o).value);
+    }
+    @Override public int hashCode() { return value.hashCode(); }
+    @Override public String toString() { return value; }
+}
+
+final class WalletAddress {
+    private final String value;
+    WalletAddress(String value) {
+        if (value == null || !BitcordConstants.ADDRESS_PATTERN.matcher(value).matches())
+            throw new BitcordValidationException("Invalid address: " + value);
+        this.value = value;
