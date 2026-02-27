@@ -528,3 +528,56 @@ final class BitcordEventDispatcher {
     BitcordEventDispatcher(ExecutorService executor) {
         this.executor = executor;
     }
+
+    void addListener(BitcordEventListener l) { listeners.add(l); }
+    void removeListener(BitcordEventListener l) { listeners.remove(l); }
+
+    void dispatch(BitcordEvent event) {
+        for (BitcordEventListener l : listeners)
+            executor.execute(() -> { try { l.onEvent(event); } catch (Throwable t) { /* log */ } });
+    }
+
+    void shutdown() { executor.shutdown(); }
+}
+
+// -----------------------------------------------------------------------------
+// Rate limiter (token bucket)
+// -----------------------------------------------------------------------------
+
+final class BitcordRateLimiter {
+    private final int maxTokens;
+    private final double refillPerSecond;
+    private double tokens;
+    private long lastRefillNs;
+
+    BitcordRateLimiter(int maxTokens, double refillPerSecond) {
+        this.maxTokens = maxTokens;
+        this.refillPerSecond = refillPerSecond;
+        this.tokens = maxTokens;
+        this.lastRefillNs = System.nanoTime();
+    }
+
+    synchronized boolean tryConsume() {
+        refill();
+        if (tokens >= 1) { tokens -= 1; return true; }
+        return false;
+    }
+
+    synchronized void consume() {
+        refill();
+        while (tokens < 1) {
+            try { wait(100); } catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new RuntimeException(e); }
+            refill();
+        }
+        tokens -= 1;
+    }
+
+    private void refill() {
+        long now = System.nanoTime();
+        double elapsed = (now - lastRefillNs) / 1e9;
+        tokens = Math.min(maxTokens, tokens + elapsed * refillPerSecond);
+        lastRefillNs = now;
+    }
+}
+
+// -----------------------------------------------------------------------------
