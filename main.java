@@ -687,3 +687,56 @@ public final class Bitcord {
         return parseChannelSnapshot(json);
     }
 
+    public List<ChannelSnapshot> fetchGuildChannels(GuildId guildId) {
+        rateLimiter.consume();
+        String json = restClient.get("/guilds/" + guildId.getValue() + "/channels");
+        return parseChannelList(json);
+    }
+
+    public List<WalletAddress> fetchGuildMembers(GuildId guildId) {
+        rateLimiter.consume();
+        String json = restClient.get("/guilds/" + guildId.getValue() + "/members");
+        return parseAddressList(json);
+    }
+
+    public void createGuild(String name) {
+        BitcordValidator.validateGuildName(name);
+        rateLimiter.consume();
+        String body = SimpleJson.object("name", name);
+        restClient.post("/guilds", body);
+    }
+
+    public void createChannel(GuildId guildId, String name, byte channelType) {
+        BitcordValidator.validateChannelName(name);
+        BitcordValidator.validateChannelType(channelType);
+        rateLimiter.consume();
+        String body = SimpleJson.object(
+                "guildId", guildId.getValue(),
+                "name", name,
+                "channelType", String.valueOf(channelType));
+        restClient.post("/channels", body);
+    }
+
+    public void joinGuild(GuildId guildId) {
+        rateLimiter.consume();
+        restClient.post("/guilds/" + guildId.getValue() + "/join", "{}");
+    }
+
+    public void leaveGuild(GuildId guildId) {
+        rateLimiter.consume();
+        restClient.post("/guilds/" + guildId.getValue() + "/leave", "{}");
+    }
+
+    public void sendMessage(ChannelId channelId, String content) {
+        BitcordValidator.validateMessageContent(content);
+        rateLimiter.consume();
+        String body = SimpleJson.object(
+                "channelId", channelId.getValue(),
+                "content", content);
+        restClient.post("/messages", body);
+    }
+
+    public void addEventListener(BitcordEventListener listener) {
+        dispatcher.addListener(listener);
+    }
+
