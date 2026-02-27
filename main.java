@@ -369,3 +369,56 @@ final class BitcordWebSocketConfig {
         this.wsUrl = wsUrl;
         this.identity = identity;
         this.heartbeatIntervalMs = heartbeatIntervalMs;
+        this.maxReconnectDelayMs = maxReconnectDelayMs;
+        this.baseReconnectMs = baseReconnectMs;
+    }
+
+    String getWsUrl() { return wsUrl; }
+    WalletAddress getIdentity() { return identity; }
+    int getHeartbeatIntervalMs() { return heartbeatIntervalMs; }
+    int getMaxReconnectDelayMs() { return maxReconnectDelayMs; }
+    int getBaseReconnectMs() { return baseReconnectMs; }
+}
+
+// -----------------------------------------------------------------------------
+// Simple JSON (minimal, no external deps)
+// -----------------------------------------------------------------------------
+
+final class SimpleJson {
+    private SimpleJson() {}
+
+    static String escape(String s) {
+        if (s == null) return "null";
+        StringBuilder sb = new StringBuilder("\"");
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '"') sb.append("\\\"");
+            else if (c == '\\') sb.append("\\\\");
+            else if (c == '\n') sb.append("\\n");
+            else if (c == '\r') sb.append("\\r");
+            else if (c == '\t') sb.append("\\t");
+            else if (c < 32) sb.append(String.format("\\u%04x", (int) c));
+            else sb.append(c);
+        }
+        sb.append('"');
+        return sb.toString();
+    }
+
+    static String object(String... kv) {
+        if (kv.length % 2 != 0) throw new IllegalArgumentException("key-value pairs");
+        StringBuilder sb = new StringBuilder("{");
+        for (int i = 0; i < kv.length; i += 2) {
+            if (i > 0) sb.append(',');
+            sb.append(escape(kv[i])).append(':').append(kv[i + 1].startsWith("{") || kv[i + 1].startsWith("[") ? kv[i + 1] : escape(kv[i + 1]));
+        }
+        sb.append('}');
+        return sb.toString();
+    }
+
+    static String array(String... items) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < items.length; i++) {
+            if (i > 0) sb.append(',');
+            String x = items[i];
+            sb.append(x.startsWith("{") || x.startsWith("[") ? x : escape(x));
+        }
