@@ -475,3 +475,56 @@ final class BitcordCache {
     }
 
     Set<WalletAddress> getGuildMembers(GuildId guildId) {
+        Set<WalletAddress> set = guildMembers.get(guildId);
+        return set == null ? Collections.emptySet() : new HashSet<>(set);
+    }
+
+    void appendMessage(ChannelId channelId, BitcordMessage msg) {
+        List<BitcordMessage> list = channelMessages.computeIfAbsent(channelId, k -> new CopyOnWriteArrayList<>());
+        list.add(msg);
+        while (list.size() > maxMessagesPerChannel) list.remove(0);
+    }
+
+    List<BitcordMessage> getMessages(ChannelId channelId, int limit) {
+        List<BitcordMessage> list = channelMessages.get(channelId);
+        if (list == null) return Collections.emptyList();
+        int from = Math.max(0, list.size() - limit);
+        return new ArrayList<>(list.subList(from, list.size()));
+    }
+
+    void putMemberRoles(GuildId guildId, WalletAddress member, List<RoleSnapshot> roles) {
+        memberRoles.computeIfAbsent(guildId, k -> new ConcurrentHashMap<>()).put(member, new ArrayList<>(roles));
+    }
+
+    List<RoleSnapshot> getMemberRoles(GuildId guildId, WalletAddress member) {
+        Map<WalletAddress, List<RoleSnapshot>> map = memberRoles.get(guildId);
+        if (map == null) return Collections.emptyList();
+        List<RoleSnapshot> r = map.get(member);
+        return r == null ? Collections.emptyList() : new ArrayList<>(r);
+    }
+
+    void clear() {
+        guilds.clear();
+        channels.clear();
+        guildChannels.clear();
+        guildMembers.clear();
+        channelMessages.clear();
+        memberRoles.clear();
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Event dispatcher (listeners)
+// -----------------------------------------------------------------------------
+
+interface BitcordEventListener {
+    void onEvent(BitcordEvent event);
+}
+
+final class BitcordEventDispatcher {
+    private final List<BitcordEventListener> listeners = new CopyOnWriteArrayList<>();
+    private final ExecutorService executor;
+
+    BitcordEventDispatcher(ExecutorService executor) {
+        this.executor = executor;
+    }
