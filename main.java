@@ -104,3 +104,56 @@ final class WalletAddress {
         if (value == null || !BitcordConstants.ADDRESS_PATTERN.matcher(value).matches())
             throw new BitcordValidationException("Invalid address: " + value);
         this.value = value;
+    }
+    String getValue() { return value; }
+    @Override public boolean equals(Object o) {
+        return o instanceof WalletAddress && value.equalsIgnoreCase(((WalletAddress) o).value);
+    }
+    @Override public int hashCode() { return value.toLowerCase().hashCode(); }
+    @Override public String toString() { return value; }
+}
+
+// -----------------------------------------------------------------------------
+// Guild model
+// -----------------------------------------------------------------------------
+
+final class GuildSnapshot {
+    private final GuildId guildId;
+    private final String name;
+    private final WalletAddress owner;
+    private final long createdAt;
+    private final boolean archived;
+    private final int channelCount;
+    private final int memberCount;
+
+    GuildSnapshot(GuildId guildId, String name, WalletAddress owner, long createdAt,
+                  boolean archived, int channelCount, int memberCount) {
+        this.guildId = guildId;
+        this.name = name;
+        this.owner = owner;
+        this.createdAt = createdAt;
+        this.archived = archived;
+        this.channelCount = channelCount;
+        this.memberCount = memberCount;
+    }
+
+    GuildId getGuildId() { return guildId; }
+    String getName() { return name; }
+    WalletAddress getOwner() { return owner; }
+    long getCreatedAt() { return createdAt; }
+    boolean isArchived() { return archived; }
+    int getChannelCount() { return channelCount; }
+    int getMemberCount() { return memberCount; }
+}
+
+// -----------------------------------------------------------------------------
+// Channel model
+// -----------------------------------------------------------------------------
+
+final class ChannelSnapshot {
+    private final ChannelId channelId;
+    private final GuildId guildId;
+    private final String name;
+    private final byte channelType;
+    private final boolean archived;
+    private final long createdAt;
