@@ -316,3 +316,56 @@ final class BitcordRestClient {
     String post(String path, String body) {
         int id = requestIdGen.incrementAndGet();
         try {
+            URL url = new URL(baseUrl + path);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setDoOutput(true);
+            conn.setConnectTimeout(connectTimeoutMs);
+            conn.setReadTimeout(readTimeoutMs);
+            for (Map.Entry<String, String> e : headers.entrySet())
+                conn.setRequestProperty(e.getKey(), e.getValue());
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setRequestProperty("X-Request-Id", String.valueOf(id));
+            if (body != null && !body.isEmpty()) {
+                byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+                conn.setRequestProperty("Content-Length", String.valueOf(bytes.length));
+                try (OutputStream out = conn.getOutputStream()) { out.write(bytes); }
+            }
+            int code = conn.getResponseCode();
+            if (code == 429) {
+                String retry = conn.getHeaderField("Retry-After");
+                long retryMs = retry != null ? Long.parseLong(retry) * 1000L : 60000L;
+                throw new BitcordRateLimitException("Rate limited", retryMs);
+            }
+            InputStream in = code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream();
+            return in != null ? readFully(in) : "";
+        } catch (IOException e) {
+            throw new BitcordNetworkException("POST " + path + " failed", e);
+        }
+    }
+
+    private static String readFully(InputStream in) throws IOException {
+        ByteArrayOutputStream buf = new ByteArrayOutputStream();
+        byte[] b = new byte[4096];
+        int n;
+        while ((n = in.read(b)) != -1) buf.write(b, 0, n);
+        return buf.toString(StandardCharsets.UTF_8.name());
+    }
+}
+
+// -----------------------------------------------------------------------------
+// WebSocket connection manager
+// -----------------------------------------------------------------------------
+
+final class BitcordWebSocketConfig {
+    private final String wsUrl;
+    private final WalletAddress identity;
+    private final int heartbeatIntervalMs;
+    private final int maxReconnectDelayMs;
+    private final int baseReconnectMs;
+
+    BitcordWebSocketConfig(String wsUrl, WalletAddress identity, int heartbeatIntervalMs,
+                           int maxReconnectDelayMs, int baseReconnectMs) {
+        this.wsUrl = wsUrl;
+        this.identity = identity;
+        this.heartbeatIntervalMs = heartbeatIntervalMs;
