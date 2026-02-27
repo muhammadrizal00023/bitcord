@@ -581,3 +581,56 @@ final class BitcordRateLimiter {
 }
 
 // -----------------------------------------------------------------------------
+// Hashing / id helpers
+// -----------------------------------------------------------------------------
+
+final class BitcordCrypto {
+    private static final SecureRandom RNG = new SecureRandom();
+
+    static String sha256Hex(String input) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(input.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(64);
+            for (byte b : hash) sb.append(String.format("%02x", b & 0xff));
+            return sb.toString();
+        } catch (Exception e) { throw new RuntimeException(e); }
+    }
+
+    static String randomHex(int byteLength) {
+        byte[] b = new byte[byteLength];
+        RNG.nextBytes(b);
+        StringBuilder sb = new StringBuilder(byteLength * 2);
+        for (byte x : b) sb.append(String.format("%02x", x & 0xff));
+        return sb.toString();
+    }
+
+    static String newMessageId() {
+        return BitcordConstants.HEX_PREFIX + randomHex(32);
+    }
+
+    static String newChannelId(GuildId guildId) {
+        return BitcordConstants.HEX_PREFIX + sha256Hex(guildId.getValue() + System.nanoTime() + randomHex(8));
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Validation
+// -----------------------------------------------------------------------------
+
+final class BitcordValidator {
+    static void validateGuildName(String name) {
+        if (name == null)
+            throw new BitcordValidationException("Guild name null");
+        int len = name.trim().length();
+        if (len < BitcordConstants.MIN_GUILD_NAME_LEN || len > BitcordConstants.MAX_GUILD_NAME_LEN)
+            throw new BitcordValidationException("Guild name length must be " + BitcordConstants.MIN_GUILD_NAME_LEN + "-" + BitcordConstants.MAX_GUILD_NAME_LEN);
+    }
+
+    static void validateChannelName(String name) {
+        if (name == null)
+            throw new BitcordValidationException("Channel name null");
+        int len = name.trim().length();
+        if (len < BitcordConstants.MIN_GUILD_NAME_LEN || len > BitcordConstants.MAX_CHANNEL_NAME_LEN)
+            throw new BitcordValidationException("Channel name length invalid");
+    }
