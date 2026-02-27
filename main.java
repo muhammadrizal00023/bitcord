@@ -157,3 +157,56 @@ final class ChannelSnapshot {
     private final byte channelType;
     private final boolean archived;
     private final long createdAt;
+
+    ChannelSnapshot(ChannelId channelId, GuildId guildId, String name, byte channelType,
+                    boolean archived, long createdAt) {
+        this.channelId = channelId;
+        this.guildId = guildId;
+        this.name = name;
+        this.channelType = channelType;
+        this.archived = archived;
+        this.createdAt = createdAt;
+    }
+
+    ChannelId getChannelId() { return channelId; }
+    GuildId getGuildId() { return guildId; }
+    String getName() { return name; }
+    byte getChannelType() { return channelType; }
+    boolean isArchived() { return archived; }
+    long getCreatedAt() { return createdAt; }
+}
+
+// -----------------------------------------------------------------------------
+// Role model
+// -----------------------------------------------------------------------------
+
+final class RoleSnapshot {
+    private final long roleId;
+    private final String name;
+
+    RoleSnapshot(long roleId, String name) {
+        this.roleId = roleId;
+        this.name = name;
+    }
+    long getRoleId() { return roleId; }
+    String getName() { return name; }
+}
+
+// -----------------------------------------------------------------------------
+// Message model (in-memory / wire)
+// -----------------------------------------------------------------------------
+
+final class BitcordMessage {
+    private final String messageId;
+    private final ChannelId channelId;
+    private final WalletAddress author;
+    private final String content;
+    private final long timestamp;
+    private final boolean edited;
+
+    BitcordMessage(String messageId, ChannelId channelId, WalletAddress author,
+                   String content, long timestamp, boolean edited) {
+        this.messageId = messageId;
+        this.channelId = channelId;
+        this.author = author;
+        this.content = content;
