@@ -634,3 +634,56 @@ final class BitcordValidator {
         if (len < BitcordConstants.MIN_GUILD_NAME_LEN || len > BitcordConstants.MAX_CHANNEL_NAME_LEN)
             throw new BitcordValidationException("Channel name length invalid");
     }
+
+    static void validateMessageContent(String content) {
+        if (content == null)
+            throw new BitcordValidationException("Message content null");
+        if (content.length() > BitcordConstants.MAX_MESSAGE_BODY_LEN)
+            throw new BitcordValidationException("Message too long");
+    }
+
+    static void validateChannelType(byte type) {
+        if (type != BitcordConstants.CHANNEL_TYPE_TEXT
+                && type != BitcordConstants.CHANNEL_TYPE_VOICE
+                && type != BitcordConstants.CHANNEL_TYPE_ANNOUNCE)
+            throw new BitcordValidationException("Invalid channel type: " + type);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Main client facade
+// -----------------------------------------------------------------------------
+
+public final class Bitcord {
+
+    private final BitcordRestClient restClient;
+    private final BitcordCache cache;
+    private final BitcordEventDispatcher dispatcher;
+    private final BitcordRateLimiter rateLimiter;
+    private final WalletAddress identity;
+    private final AtomicLong sequence = new AtomicLong(0);
+
+    private Bitcord(BitcordRestClient restClient, BitcordCache cache,
+                   BitcordEventDispatcher dispatcher, BitcordRateLimiter rateLimiter,
+                   WalletAddress identity) {
+        this.restClient = restClient;
+        this.cache = cache;
+        this.dispatcher = dispatcher;
+        this.rateLimiter = rateLimiter;
+        this.identity = identity;
+    }
+
+    public WalletAddress getIdentity() { return identity; }
+
+    public GuildSnapshot fetchGuild(GuildId guildId) {
+        rateLimiter.consume();
+        String json = restClient.get("/guilds/" + guildId.getValue());
+        return parseGuildSnapshot(json);
+    }
+
+    public ChannelSnapshot fetchChannel(ChannelId channelId) {
+        rateLimiter.consume();
+        String json = restClient.get("/channels/" + channelId.getValue());
+        return parseChannelSnapshot(json);
+    }
+
