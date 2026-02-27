@@ -210,3 +210,56 @@ final class BitcordMessage {
         this.channelId = channelId;
         this.author = author;
         this.content = content;
+        this.timestamp = timestamp;
+        this.edited = edited;
+    }
+
+    String getMessageId() { return messageId; }
+    ChannelId getChannelId() { return channelId; }
+    WalletAddress getAuthor() { return author; }
+    String getContent() { return content; }
+    long getTimestamp() { return timestamp; }
+    boolean isEdited() { return edited; }
+}
+
+// -----------------------------------------------------------------------------
+// Event envelope (for WebSocket / internal bus)
+// -----------------------------------------------------------------------------
+
+enum BitcordEventKind {
+    GUILD_CREATED,
+    CHANNEL_CREATED,
+    MEMBER_JOINED,
+    MEMBER_LEFT,
+    ROLE_ASSIGNED,
+    ROLE_REVOKED,
+    MESSAGE_RECEIVED,
+    MESSAGE_UPDATED,
+    MESSAGE_DELETED,
+    CHANNEL_ARCHIVED,
+    GUILD_ARCHIVED,
+    HEARTBEAT_ACK,
+    READY,
+    ERROR
+}
+
+final class BitcordEvent {
+    private final BitcordEventKind kind;
+    private final String payloadJson;
+    private final long sequence;
+    private final long serverTimeMs;
+
+    BitcordEvent(BitcordEventKind kind, String payloadJson, long sequence, long serverTimeMs) {
+        this.kind = kind;
+        this.payloadJson = payloadJson;
+        this.sequence = sequence;
+        this.serverTimeMs = serverTimeMs;
+    }
+
+    BitcordEventKind getKind() { return kind; }
+    String getPayloadJson() { return payloadJson; }
+    long getSequence() { return sequence; }
+    long getServerTimeMs() { return serverTimeMs; }
+}
+
+// -----------------------------------------------------------------------------
