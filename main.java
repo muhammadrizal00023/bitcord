@@ -422,3 +422,56 @@ final class SimpleJson {
             String x = items[i];
             sb.append(x.startsWith("{") || x.startsWith("[") ? x : escape(x));
         }
+        sb.append(']');
+        return sb.toString();
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Local cache (guilds, channels, members, messages)
+// -----------------------------------------------------------------------------
+
+final class BitcordCache {
+    private final ConcurrentHashMap<GuildId, GuildSnapshot> guilds = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<ChannelId, ChannelSnapshot> channels = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<GuildId, List<ChannelSnapshot>> guildChannels = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<GuildId, Set<WalletAddress>> guildMembers = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<ChannelId, List<BitcordMessage>> channelMessages = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<GuildId, Map<WalletAddress, List<RoleSnapshot>>> memberRoles = new ConcurrentHashMap<>();
+    private final int maxMessagesPerChannel;
+    private final long messageTtlMs;
+
+    BitcordCache(int maxMessagesPerChannel, long messageTtlMs) {
+        this.maxMessagesPerChannel = maxMessagesPerChannel;
+        this.messageTtlMs = messageTtlMs;
+    }
+
+    void putGuild(GuildSnapshot g) {
+        guilds.put(g.getGuildId(), g);
+    }
+
+    GuildSnapshot getGuild(GuildId id) { return guilds.get(id); }
+
+    void putChannel(ChannelSnapshot c) {
+        channels.put(c.getChannelId(), c);
+        guildChannels.computeIfAbsent(c.getGuildId(), k -> new CopyOnWriteArrayList<>()).add(c);
+    }
+
+    ChannelSnapshot getChannel(ChannelId id) { return channels.get(id); }
+
+    List<ChannelSnapshot> getChannelsForGuild(GuildId guildId) {
+        List<ChannelSnapshot> list = guildChannels.get(guildId);
+        return list == null ? Collections.emptyList() : new ArrayList<>(list);
+    }
+
+    void addGuildMember(GuildId guildId, WalletAddress member) {
+        guildMembers.computeIfAbsent(guildId, k -> ConcurrentHashMap.newKeySet()).add(member);
+    }
+
+    void removeGuildMember(GuildId guildId, WalletAddress member) {
+        Set<WalletAddress> set = guildMembers.get(guildId);
+        if (set != null) set.remove(member);
+        memberRoles.getOrDefault(guildId, Collections.emptyMap()).remove(member);
+    }
+
+    Set<WalletAddress> getGuildMembers(GuildId guildId) {
