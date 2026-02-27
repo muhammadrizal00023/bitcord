@@ -263,3 +263,56 @@ final class BitcordEvent {
 }
 
 // -----------------------------------------------------------------------------
+// REST client (simulated / stub for EVM RPC + custom API)
+// -----------------------------------------------------------------------------
+
+final class BitcordRestClient {
+    private final String baseUrl;
+    private final WalletAddress identity;
+    private final Map<String, String> headers;
+    private final int connectTimeoutMs;
+    private final int readTimeoutMs;
+    private final AtomicInteger requestIdGen = new AtomicInteger(0);
+
+    BitcordRestClient(String baseUrl, WalletAddress identity, Map<String, String> headers,
+                      int connectTimeoutMs, int readTimeoutMs) {
+        this.baseUrl = baseUrl;
+        this.identity = identity;
+        this.headers = headers == null ? new HashMap<>() : new HashMap<>(headers);
+        this.connectTimeoutMs = connectTimeoutMs;
+        this.readTimeoutMs = readTimeoutMs;
+        this.headers.putIfAbsent("X-Bitcord-Version", BitcordConstants.PROTOCOL_VERSION);
+        this.headers.putIfAbsent("X-Wallet-Address", identity.getValue());
+    }
+
+    String getBaseUrl() { return baseUrl; }
+    WalletAddress getIdentity() { return identity; }
+
+    String get(String path) {
+        int id = requestIdGen.incrementAndGet();
+        try {
+            URL url = new URL(baseUrl + path);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(connectTimeoutMs);
+            conn.setReadTimeout(readTimeoutMs);
+            for (Map.Entry<String, String> e : headers.entrySet())
+                conn.setRequestProperty(e.getKey(), e.getValue());
+            conn.setRequestProperty("X-Request-Id", String.valueOf(id));
+            int code = conn.getResponseCode();
+            if (code == 429) {
+                String retry = conn.getHeaderField("Retry-After");
+                long retryMs = retry != null ? Long.parseLong(retry) * 1000L : 60000L;
+                throw new BitcordRateLimitException("Rate limited", retryMs);
+            }
+            if (code < 200 || code >= 300)
+                throw new BitcordNetworkException("HTTP " + code + " for GET " + path);
+            return readFully(conn.getInputStream());
+        } catch (IOException e) {
+            throw new BitcordNetworkException("GET " + path + " failed", e);
+        }
+    }
+
+    String post(String path, String body) {
+        int id = requestIdGen.incrementAndGet();
+        try {
