@@ -899,3 +899,56 @@ public final class Bitcord {
         if (start == -1) return null;
         int end = json.indexOf('"', start + 1);
         if (end == -1) return null;
+        return json.substring(start + 1, end);
+    }
+
+    private static long extractLong(String json, String key) {
+        String search = "\"" + key + "\"";
+        int idx = json.indexOf(search);
+        if (idx == -1) return 0;
+        int colon = json.indexOf(':', idx);
+        if (colon == -1) return 0;
+        int i = colon + 1;
+        while (i < json.length() && (Character.isWhitespace(json.charAt(i)) || json.charAt(i) == ':')) i++;
+        StringBuilder num = new StringBuilder();
+        while (i < json.length() && (Character.isDigit(json.charAt(i)) || json.charAt(i) == '-')) {
+            num.append(json.charAt(i));
+            i++;
+        }
+        return num.length() == 0 ? 0 : Long.parseLong(num.toString());
+    }
+
+    private static boolean extractBoolean(String json, String key) {
+        String search = "\"" + key + "\"";
+        int idx = json.indexOf(search);
+        if (idx == -1) return false;
+        int colon = json.indexOf(':', idx);
+        if (colon == -1) return false;
+        int t = json.indexOf("true", colon);
+        int f = json.indexOf("false", colon);
+        if (t != -1 && (f == -1 || t < f)) return true;
+        if (f != -1 && (t == -1 || f < t)) return false;
+        return false;
+    }
+
+    // -------------------------------------------------------------------------
+    // Builder
+    // -------------------------------------------------------------------------
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static final class Builder {
+        private String baseUrl = "https://api.bitcord.example";
+        private WalletAddress identity;
+        private Map<String, String> headers;
+        private int connectTimeoutMs = 10000;
+        private int readTimeoutMs = 30000;
+        private int maxMessagesPerChannel = 100;
+        private long messageTtlMs = 3600000;
+        private int rateLimitMax = 30;
+        private double rateLimitRefill = 1.0;
+        private ExecutorService executor;
+
+        public Builder baseUrl(String url) { this.baseUrl = url; return this; }
