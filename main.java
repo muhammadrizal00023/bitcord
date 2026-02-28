@@ -1217,3 +1217,56 @@ final class BitcordDefaultLogger implements BitcordLogger {
         if (t != null) t.printStackTrace(out);
     }
 }
+
+// -----------------------------------------------------------------------------
+// Config loader from properties/env
+// -----------------------------------------------------------------------------
+
+final class BitcordConfig {
+    private final String baseUrl;
+    private final String wsUrl;
+    private final String walletAddress;
+    private final int connectTimeoutMs;
+    private final int readTimeoutMs;
+    private final int heartbeatIntervalMs;
+
+    BitcordConfig(String baseUrl, String wsUrl, String walletAddress, int connectTimeoutMs, int readTimeoutMs, int heartbeatIntervalMs) {
+        this.baseUrl = baseUrl;
+        this.wsUrl = wsUrl;
+        this.walletAddress = walletAddress;
+        this.connectTimeoutMs = connectTimeoutMs;
+        this.readTimeoutMs = readTimeoutMs;
+        this.heartbeatIntervalMs = heartbeatIntervalMs;
+    }
+
+    static BitcordConfig fromEnvironment() {
+        String base = System.getenv("BITCORD_API_URL");
+        if (base == null) base = System.getProperty("bitcord.api.url", "https://api.bitcord.example");
+        String ws = System.getenv("BITCORD_WS_URL");
+        if (ws == null) ws = System.getProperty("bitcord.ws.url", "wss://ws.bitcord.example");
+        String addr = System.getenv("BITCORD_WALLET_ADDRESS");
+        if (addr == null) addr = System.getProperty("bitcord.wallet.address", "");
+        int ct = Integer.parseInt(System.getProperty("bitcord.connect.timeout.ms", "10000"));
+        int rt = Integer.parseInt(System.getProperty("bitcord.read.timeout.ms", "30000"));
+        int hb = Integer.parseInt(System.getProperty("bitcord.heartbeat.ms", "42000"));
+        return new BitcordConfig(base, ws, addr, ct, rt, hb);
+    }
+
+    String getBaseUrl() { return baseUrl; }
+    String getWsUrl() { return wsUrl; }
+    String getWalletAddress() { return walletAddress; }
+    int getConnectTimeoutMs() { return connectTimeoutMs; }
+    int getReadTimeoutMs() { return readTimeoutMs; }
+    int getHeartbeatIntervalMs() { return heartbeatIntervalMs; }
+}
+
+// -----------------------------------------------------------------------------
+// Message queue for outbound (buffer before send)
+// -----------------------------------------------------------------------------
+
+final class BitcordOutboundQueue {
+    private final BlockingQueue<QueuedMessage> queue = new LinkedBlockingQueue<>(500);
+    private final int maxSize = 500;
+    private final AtomicInteger size = new AtomicInteger(0);
+
+    static final class QueuedMessage {
