@@ -1323,3 +1323,56 @@ final class BitcordWsFrame {
     }
 
     int getOpcode() { return opcode; }
+    byte[] getPayload() { return payload; }
+    String getPayloadUtf8() { return new String(payload, StandardCharsets.UTF_8); }
+}
+
+// -----------------------------------------------------------------------------
+// Heartbeat scheduler
+// -----------------------------------------------------------------------------
+
+final class BitcordHeartbeatTask implements Runnable {
+    private final Runnable sendHeartbeat;
+    private final long intervalMs;
+    private final AtomicLong lastAckMs = new AtomicLong(0);
+    private volatile boolean cancelled;
+
+    BitcordHeartbeatTask(Runnable sendHeartbeat, long intervalMs) {
+        this.sendHeartbeat = sendHeartbeat;
+        this.intervalMs = intervalMs;
+    }
+
+    void ack() { lastAckMs.set(System.currentTimeMillis()); }
+    long getLastAckMs() { return lastAckMs.get(); }
+    void cancel() { cancelled = true; }
+
+    @Override
+    public void run() {
+        while (!cancelled) {
+            try {
+                Thread.sleep(intervalMs);
+                if (cancelled) break;
+                sendHeartbeat.run();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Reconnect state
+// -----------------------------------------------------------------------------
+
+final class BitcordReconnectState {
+    private final int baseDelayMs;
+    private final int maxDelayMs;
+    private int attempt;
+    private long nextAttemptMs;
+
+    BitcordReconnectState(int baseDelayMs, int maxDelayMs) {
+        this.baseDelayMs = baseDelayMs;
+        this.maxDelayMs = maxDelayMs;
+        this.attempt = 0;
+        this.nextAttemptMs = System.currentTimeMillis();
