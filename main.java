@@ -1005,3 +1005,56 @@ final class InviteSnapshot {
     private final int maxUses;
     private final int useCount;
 
+    InviteSnapshot(String code, GuildId guildId, WalletAddress creator, long expiresAt, int maxUses, int useCount) {
+        this.code = code;
+        this.guildId = guildId;
+        this.creator = creator;
+        this.expiresAt = expiresAt;
+        this.maxUses = maxUses;
+        this.useCount = useCount;
+    }
+    String getCode() { return code; }
+    GuildId getGuildId() { return guildId; }
+    WalletAddress getCreator() { return creator; }
+    long getExpiresAt() { return expiresAt; }
+    int getMaxUses() { return maxUses; }
+    int getUseCount() { return useCount; }
+    boolean isValid() { return (maxUses <= 0 || useCount < maxUses) && (expiresAt <= 0 || System.currentTimeMillis() < expiresAt); }
+}
+
+// -----------------------------------------------------------------------------
+// Direct message channel (DM) model
+// -----------------------------------------------------------------------------
+
+final class DmChannelSnapshot {
+    private final String dmChannelId;
+    private final WalletAddress peer;
+    private final long createdAt;
+    private final BitcordMessage lastMessage;
+
+    DmChannelSnapshot(String dmChannelId, WalletAddress peer, long createdAt, BitcordMessage lastMessage) {
+        this.dmChannelId = dmChannelId;
+        this.peer = peer;
+        this.createdAt = createdAt;
+        this.lastMessage = lastMessage;
+    }
+    String getDmChannelId() { return dmChannelId; }
+    WalletAddress getPeer() { return peer; }
+    long getCreatedAt() { return createdAt; }
+    BitcordMessage getLastMessage() { return lastMessage; }
+}
+
+// -----------------------------------------------------------------------------
+// Permission flags (Bitcord-specific bitmask)
+// -----------------------------------------------------------------------------
+
+final class BitcordPermissions {
+    static final long SEND_MESSAGES = 1L << 0;
+    static final long READ_MESSAGES = 1L << 1;
+    static final long MANAGE_CHANNEL = 1L << 2;
+    static final long MANAGE_GUILD = 1L << 3;
+    static final long KICK_MEMBERS = 1L << 4;
+    static final long BAN_MEMBERS = 1L << 5;
+    static final long ASSIGN_ROLES = 1L << 6;
+    static final long CREATE_INVITE = 1L << 7;
+    static final long ARCHIVE_CHANNEL = 1L << 8;
