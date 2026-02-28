@@ -793,3 +793,56 @@ public final class Bitcord {
 
     public void clearCache() {
         cache.clear();
+    }
+
+    public void dispatchEvent(BitcordEventKind kind, String payloadJson) {
+        BitcordEvent ev = new BitcordEvent(kind, payloadJson, sequence.incrementAndGet(), System.currentTimeMillis());
+        updateCacheFromEvent(ev);
+        dispatcher.dispatch(ev);
+    }
+
+    private static GuildSnapshot parseGuildSnapshot(String json) {
+        if (json == null || json.isEmpty()) return null;
+        try {
+            String id = extractString(json, "guildId");
+            String name = extractString(json, "name");
+            String owner = extractString(json, "owner");
+            long createdAt = extractLong(json, "createdAt");
+            boolean archived = extractBoolean(json, "archived");
+            int channelCount = (int) extractLong(json, "channelCount");
+            int memberCount = (int) extractLong(json, "memberCount");
+            if (id == null || name == null || owner == null) return null;
+            return new GuildSnapshot(new GuildId(id), name, new WalletAddress(owner), createdAt, archived, channelCount, memberCount);
+        } catch (Exception e) { return null; }
+    }
+
+    private static ChannelSnapshot parseChannelSnapshot(String json) {
+        if (json == null || json.isEmpty()) return null;
+        try {
+            String cid = extractString(json, "channelId");
+            String gid = extractString(json, "guildId");
+            String name = extractString(json, "name");
+            byte type = (byte) extractLong(json, "channelType");
+            boolean archived = extractBoolean(json, "archived");
+            long createdAt = extractLong(json, "createdAt");
+            if (cid == null || gid == null || name == null) return null;
+            return new ChannelSnapshot(new ChannelId(cid), new GuildId(gid), name, type, archived, createdAt);
+        } catch (Exception e) { return null; }
+    }
+
+    private static BitcordMessage parseMessage(String json) {
+        if (json == null || json.isEmpty()) return null;
+        try {
+            String msgId = extractString(json, "messageId");
+            String channelId = extractString(json, "channelId");
+            String author = extractString(json, "author");
+            String content = extractString(json, "content");
+            long timestamp = extractLong(json, "timestamp");
+            boolean edited = extractBoolean(json, "edited");
+            if (msgId == null || channelId == null || author == null || content == null) return null;
+            return new BitcordMessage(msgId, new ChannelId(channelId), new WalletAddress(author), content, timestamp, edited);
+        } catch (Exception e) { return null; }
+    }
+
+    private static GuildId parseGuildIdFromPayload(String json) {
+        String id = extractString(json, "guildId");
