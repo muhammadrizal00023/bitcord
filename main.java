@@ -1111,3 +1111,56 @@ final class TypingIndicator {
     boolean isExpired(long timeoutMs) { return System.currentTimeMillis() - startedAtMs > timeoutMs; }
 }
 
+// -----------------------------------------------------------------------------
+// Retry policy with exponential backoff
+// -----------------------------------------------------------------------------
+
+final class BitcordRetryPolicy {
+    private final int maxAttempts;
+    private final long initialDelayMs;
+    private final long maxDelayMs;
+    private final double multiplier;
+    private final Set<Class<? extends Throwable>> retryable;
+
+    BitcordRetryPolicy(int maxAttempts, long initialDelayMs, long maxDelayMs, double multiplier,
+                      Set<Class<? extends Throwable>> retryable) {
+        this.maxAttempts = maxAttempts;
+        this.initialDelayMs = initialDelayMs;
+        this.maxDelayMs = maxDelayMs;
+        this.multiplier = multiplier;
+        this.retryable = retryable;
+    }
+
+    boolean shouldRetry(Throwable t, int attempt) {
+        if (attempt >= maxAttempts) return false;
+        for (Class<? extends Throwable> c : retryable)
+            if (c.isInstance(t)) return true;
+        return false;
+    }
+
+    long delayMs(int attempt) {
+        long d = (long) (initialDelayMs * Math.pow(multiplier, attempt));
+        return Math.min(d, maxDelayMs);
+    }
+
+    static BitcordRetryPolicy defaultPolicy() {
+        Set<Class<? extends Throwable>> set = new HashSet<>();
+        set.add(BitcordNetworkException.class);
+        set.add(BitcordRateLimitException.class);
+        return new BitcordRetryPolicy(5, 1000, 60000, 2.0, set);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Connection pool for HTTP (simplified)
+// -----------------------------------------------------------------------------
+
+final class BitcordConnectionPool {
+    private final String host;
+    private final int port;
+    private final int maxConnections;
+    private final BlockingQueue<HttpURLConnection> idle;
+    private final AtomicInteger activeCount = new AtomicInteger(0);
+
+    BitcordConnectionPool(String host, int port, int maxConnections) {
+        this.host = host;
