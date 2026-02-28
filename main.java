@@ -1058,3 +1058,56 @@ final class BitcordPermissions {
     static final long ASSIGN_ROLES = 1L << 6;
     static final long CREATE_INVITE = 1L << 7;
     static final long ARCHIVE_CHANNEL = 1L << 8;
+    static final long MANAGE_ROLES = 1L << 9;
+    static final long ADMIN = (1L << 10) - 1;
+
+    static boolean has(long permissions, long flag) { return (permissions & flag) == flag; }
+    static long add(long permissions, long flag) { return permissions | flag; }
+    static long remove(long permissions, long flag) { return permissions & ~flag; }
+    private BitcordPermissions() {}
+}
+
+// -----------------------------------------------------------------------------
+// Presence (online/offline/away)
+// -----------------------------------------------------------------------------
+
+enum PresenceStatus { ONLINE, OFFLINE, AWAY, DND, INVISIBLE }
+
+final class PresenceSnapshot {
+    private final WalletAddress user;
+    private final PresenceStatus status;
+    private final String customStatus;
+    private final long lastSeenMs;
+
+    PresenceSnapshot(WalletAddress user, PresenceStatus status, String customStatus, long lastSeenMs) {
+        this.user = user;
+        this.status = status;
+        this.customStatus = customStatus;
+        this.lastSeenMs = lastSeenMs;
+    }
+    WalletAddress getUser() { return user; }
+    PresenceStatus getStatus() { return status; }
+    String getCustomStatus() { return customStatus; }
+    long getLastSeenMs() { return lastSeenMs; }
+}
+
+// -----------------------------------------------------------------------------
+// Typing indicator
+// -----------------------------------------------------------------------------
+
+final class TypingIndicator {
+    private final ChannelId channelId;
+    private final WalletAddress user;
+    private final long startedAtMs;
+
+    TypingIndicator(ChannelId channelId, WalletAddress user, long startedAtMs) {
+        this.channelId = channelId;
+        this.user = user;
+        this.startedAtMs = startedAtMs;
+    }
+    ChannelId getChannelId() { return channelId; }
+    WalletAddress getUser() { return user; }
+    long getStartedAtMs() { return startedAtMs; }
+    boolean isExpired(long timeoutMs) { return System.currentTimeMillis() - startedAtMs > timeoutMs; }
+}
+
