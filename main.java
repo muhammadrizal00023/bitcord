@@ -1270,3 +1270,56 @@ final class BitcordOutboundQueue {
     private final AtomicInteger size = new AtomicInteger(0);
 
     static final class QueuedMessage {
+        final ChannelId channelId;
+        final String content;
+        final long enqueuedAt;
+
+        QueuedMessage(ChannelId channelId, String content, long enqueuedAt) {
+            this.channelId = channelId;
+            this.content = content;
+            this.enqueuedAt = enqueuedAt;
+        }
+    }
+
+    boolean offer(ChannelId channelId, String content) {
+        if (size.get() >= maxSize) return false;
+        boolean added = queue.offer(new QueuedMessage(channelId, content, System.currentTimeMillis()));
+        if (added) size.incrementAndGet();
+        return added;
+    }
+
+    QueuedMessage take() throws InterruptedException {
+        QueuedMessage m = queue.take();
+        size.decrementAndGet();
+        return m;
+    }
+
+    QueuedMessage poll(long timeoutMs) throws InterruptedException {
+        QueuedMessage m = queue.poll(timeoutMs, TimeUnit.MILLISECONDS);
+        if (m != null) size.decrementAndGet();
+        return m;
+    }
+
+    int size() { return size.get(); }
+}
+
+// -----------------------------------------------------------------------------
+// WebSocket frame (text binary close ping pong)
+// -----------------------------------------------------------------------------
+
+final class BitcordWsFrame {
+    static final int OP_TEXT = 1;
+    static final int OP_BINARY = 2;
+    static final int OP_CLOSE = 8;
+    static final int OP_PING = 9;
+    static final int OP_PONG = 10;
+
+    private final int opcode;
+    private final byte[] payload;
+
+    BitcordWsFrame(int opcode, byte[] payload) {
+        this.opcode = opcode;
+        this.payload = payload == null ? new byte[0] : payload;
+    }
+
+    int getOpcode() { return opcode; }
