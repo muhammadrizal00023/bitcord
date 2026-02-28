@@ -1164,3 +1164,56 @@ final class BitcordConnectionPool {
 
     BitcordConnectionPool(String host, int port, int maxConnections) {
         this.host = host;
+        this.port = port;
+        this.maxConnections = maxConnections;
+        this.idle = new LinkedBlockingQueue<>(maxConnections);
+    }
+
+    HttpURLConnection acquire() throws IOException {
+        HttpURLConnection conn = idle.poll();
+        if (conn != null) {
+            activeCount.incrementAndGet();
+            return conn;
+        }
+        if (activeCount.get() >= maxConnections)
+            throw new BitcordNetworkException("Connection pool exhausted");
+        URL url = new URL("https://" + host + (port != 443 ? ":" + port : "") + "/");
+        HttpURLConnection c = (HttpURLConnection) url.openConnection();
+        activeCount.incrementAndGet();
+        return c;
+    }
+
+    void release(HttpURLConnection conn) {
+        if (conn == null) return;
+        activeCount.decrementAndGet();
+        conn.disconnect();
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Logging adapter (no external logger)
+// -----------------------------------------------------------------------------
+
+enum BitcordLogLevel { TRACE, DEBUG, INFO, WARN, ERROR }
+
+interface BitcordLogger {
+    void log(BitcordLogLevel level, String message, Throwable t);
+}
+
+final class BitcordDefaultLogger implements BitcordLogger {
+    private final BitcordLogLevel minLevel;
+    private final PrintStream out;
+
+    BitcordDefaultLogger(BitcordLogLevel minLevel, PrintStream out) {
+        this.minLevel = minLevel;
+        this.out = out;
+    }
+
+    @Override
+    public void log(BitcordLogLevel level, String message, Throwable t) {
+        if (level.ordinal() < minLevel.ordinal()) return;
+        String line = Instant.now() + " [" + level + "] " + message;
+        out.println(line);
+        if (t != null) t.printStackTrace(out);
+    }
+}
