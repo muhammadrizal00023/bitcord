@@ -952,3 +952,56 @@ public final class Bitcord {
         private ExecutorService executor;
 
         public Builder baseUrl(String url) { this.baseUrl = url; return this; }
+        public Builder identity(WalletAddress identity) { this.identity = identity; return this; }
+        public Builder identity(String address) { this.identity = new WalletAddress(address); return this; }
+        public Builder headers(Map<String, String> headers) { this.headers = headers; return this; }
+        public Builder connectTimeoutMs(int ms) { this.connectTimeoutMs = ms; return this; }
+        public Builder readTimeoutMs(int ms) { this.readTimeoutMs = ms; return this; }
+        public Builder maxMessagesPerChannel(int n) { this.maxMessagesPerChannel = n; return this; }
+        public Builder messageTtlMs(long ms) { this.messageTtlMs = ms; return this; }
+        public Builder rateLimit(int max, double refillPerSec) { this.rateLimitMax = max; this.rateLimitRefill = refillPerSec; return this; }
+        public Builder executor(ExecutorService ex) { this.executor = ex; return this; }
+
+        public Bitcord build() {
+            if (identity == null) throw new BitcordValidationException("identity required");
+            ExecutorService ex = executor != null ? executor : Executors.newCachedThreadPool(r -> {
+                Thread t = new Thread(r, "bitcord-" + System.nanoTime());
+                t.setDaemon(true);
+                return t;
+            });
+            BitcordRestClient rest = new BitcordRestClient(baseUrl, identity, headers, connectTimeoutMs, readTimeoutMs);
+            BitcordCache cache = new BitcordCache(maxMessagesPerChannel, messageTtlMs);
+            BitcordEventDispatcher disp = new BitcordEventDispatcher(ex);
+            BitcordRateLimiter limiter = new BitcordRateLimiter(rateLimitMax, rateLimitRefill);
+            return new Bitcord(rest, cache, disp, limiter, identity);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Entry / demo
+    // -------------------------------------------------------------------------
+
+    public static void main(String[] args) {
+        WalletAddress addr = new WalletAddress("0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1");
+        Bitcord client = Bitcord.builder()
+                .identity(addr)
+                .baseUrl("https://api.bitcord.example")
+                .rateLimit(30, 1.0)
+                .build();
+        client.addEventListener(event -> System.out.println("Event: " + event.getKind() + " seq=" + event.getSequence()));
+        System.out.println("Bitcord client ready for " + client.getIdentity());
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Invite model and handling
+// -----------------------------------------------------------------------------
+
+final class InviteSnapshot {
+    private final String code;
+    private final GuildId guildId;
+    private final WalletAddress creator;
+    private final long expiresAt;
+    private final int maxUses;
+    private final int useCount;
+
