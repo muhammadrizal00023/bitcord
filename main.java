@@ -846,3 +846,56 @@ public final class Bitcord {
 
     private static GuildId parseGuildIdFromPayload(String json) {
         String id = extractString(json, "guildId");
+        return id != null ? new GuildId(id) : null;
+    }
+
+    private static WalletAddress parseAddressFromPayload(String json) {
+        String a = extractString(json, "member");
+        if (a == null) a = extractString(json, "address");
+        return a != null ? new WalletAddress(a) : null;
+    }
+
+    private static List<ChannelSnapshot> parseChannelList(String json) {
+        List<ChannelSnapshot> out = new ArrayList<>();
+        if (json == null || !json.trim().startsWith("[")) return out;
+        int start = json.indexOf('[') + 1;
+        int depth = 1;
+        StringBuilder current = new StringBuilder();
+        for (int i = start; i < json.length(); i++) {
+            char c = json.charAt(i);
+            if (c == '{') { depth++; current.append(c); }
+            else if (c == '}') { depth--; current.append(c); if (depth == 1) { ChannelSnapshot sn = parseChannelSnapshot(current.toString()); if (sn != null) out.add(sn); current.setLength(0); } }
+            else if (depth >= 2) current.append(c);
+            else if (c == '[') depth++;
+            else if (c == ']') depth--;
+        }
+        return out;
+    }
+
+    private static List<WalletAddress> parseAddressList(String json) {
+        List<WalletAddress> out = new ArrayList<>();
+        if (json == null || !json.trim().startsWith("[")) return out;
+        int i = json.indexOf('[') + 1;
+        while (i < json.length()) {
+            int q = json.indexOf('"', i);
+            if (q == -1) break;
+            int end = json.indexOf('"', q + 1);
+            if (end == -1) break;
+            String addr = json.substring(q + 1, end);
+            if (BitcordConstants.ADDRESS_PATTERN.matcher(addr).matches())
+                out.add(new WalletAddress(addr));
+            i = end + 1;
+        }
+        return out;
+    }
+
+    private static String extractString(String json, String key) {
+        String search = "\"" + key + "\"";
+        int idx = json.indexOf(search);
+        if (idx == -1) return null;
+        int colon = json.indexOf(':', idx);
+        if (colon == -1) return null;
+        int start = json.indexOf('"', colon);
+        if (start == -1) return null;
+        int end = json.indexOf('"', start + 1);
+        if (end == -1) return null;
